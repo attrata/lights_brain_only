@@ -1,10 +1,3 @@
-import themidibus.*; //Import the library
-
-MidiBus myBus; // The MidiBus
-/*
- * A simple grid sequencer, launching several effects in rhythm.
- */
-
 import de.voidplus.redis.*;
 
 Redis redis;
@@ -183,18 +176,27 @@ void setup()
   opc.cocoon((4*PI)/3);
   opc.cocoon((5*PI)/3);
   
-  MidiBus.list();
-  myBus = new MidiBus(this, "SmartPAD", "SmartPAD"); // Create a new MidiBus using the device names to select the Midi input and output devices respectively.
-  myBus.sendControllerChange(0, 0, 90); // Send a controllerChange
-
   redis = new Redis(this, "127.0.0.1", 6379);
 
+  String pattern_string = "";
+  for (int x=0; x < 8; x++){
+    for (int y=0; y < 8; y++){
+      pattern_string += pattern[x][y] + ",";
+    }
+  }
+  
+  redis = new Redis(this, "127.0.0.1", 6379);
+  redis.setnx("pattern",pattern_string);
+    
+  readPattern();
+  
   // Init timekeeping, start the pattern from the beginning
   startPattern();
 }
 
 void draw()
 {
+  readPattern();
   background(0);
 
   long m = millis();
@@ -207,8 +209,8 @@ void draw()
 
   float now = (m - startTime) * 1e-3;
   drawEffects(now);
-  drawGrid(now);
-  drawInstructions();
+//  drawGrid(now);
+//  drawInstructions();
 }
 
 void clearPattern()
@@ -235,23 +237,6 @@ void pausePattern()
     pauseTime = 0;
   }
 }   
-
-void mousePressed()
-{
-  int gx = (mouseX - gridX) / gridSquareSpacing;
-  int gy = (mouseY - gridY) / gridSquareSpacing;
-  if (gx >= 0 && gx < pattern[0].length && gy >= 0 && gy < pattern.length) {
-    pattern[gy][gx] ^= 1;
-  }
-}
-
-void keyPressed()
-{
-  if (keyCode == DELETE) clearPattern();
-  if (keyCode == BACKSPACE) clearPattern();
-  if (keyCode == UP) startPattern();
-  if (key == ' ') pausePattern();
-}
 
 void drawGrid(float now)
 {
@@ -469,21 +454,18 @@ void drawStripeEffect(float identity, float time)
   image(im, x - sizeX/2, y - sizeY/2, sizeX, sizeY);   
 }
 
-void noteOn(int channel, int pitch, int velocity) {
-  // Receive a noteOn
-  println();
-  println("Note On:");
-  println("--------");
-  println("Channel:"+channel);
-  println("Pitch:"+pitch);
-  println("Velocity:"+velocity);
-  println("address:"+pitch/16+" "+pitch %16);
-  if (pattern[pitch / 16][pitch % 16] == 0){
-    pattern[pitch / 16][pitch % 16] = 1;
-    myBus.sendNoteOff(channel, pitch, 100);
-  }
-   else if (pattern[pitch / 16][pitch % 16] == 1){
-    pattern[pitch / 16][pitch % 16] = 0;
-    myBus.sendNoteOn(channel, pitch, 0);     
+void readPattern(){
+  String pattern_string = redis.get("pattern");
+  println(pattern_string);
+  int[] nums = int(split(pattern_string, ','));
+
+  for (int x=0; x < 8; x++){
+    for (int y=0; y < 8; y++){
+      if (x+(y*8) > nums.length - 1){
+        pattern[x][y] = 0;
+      }else {
+        pattern[x][y] = nums[x+(y*8)];
+      }
+    }
   }
 }
