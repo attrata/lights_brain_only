@@ -16,12 +16,6 @@ int[][] pattern = {
 
 OPC opc;
 
-// Grid coordinates
-int gridX = 20;
-int gridY = 20;
-int gridSquareSize = 15;
-int gridSquareSpacing = 20;
-
 // Timing info
 float rowsPerSecond = 2 * BPM / 60.0;
 float rowDuration = 1.0 / rowsPerSecond;
@@ -48,7 +42,7 @@ long startTime, pauseTime;
 
 void setup()
 {
-  size(800, 800);
+  size(300, 300);
 
   imgGreenDot = loadImage("greenDot.png");
   imgOrangeDot = loadImage("orangeDot.png");
@@ -209,8 +203,6 @@ void draw()
 
   float now = (m - startTime) * 1e-3;
   drawEffects(now);
-//  drawGrid(now);
-//  drawInstructions();
 }
 
 void clearPattern()
@@ -237,38 +229,6 @@ void pausePattern()
     pauseTime = 0;
   }
 }   
-
-void drawGrid(float now)
-{
-  int currentRow = int(rowsPerSecond * now) % pattern.length;
-  blendMode(BLEND);
-
-  for (int row = 0; row < pattern.length; row++) {
-    for (int col = 0; col < pattern[0].length; col++) {
-      fill(pattern[row][col] != 0 ? 190 : 64);
-      rect(gridX + gridSquareSpacing * col, gridY + gridSquareSpacing * row, gridSquareSize, gridSquareSize);
-    }
-    
-    if (row == currentRow) {
-      // Highlight the current row
-      fill(255, 255, 0, 32);
-      rect(gridX, gridY + gridSquareSpacing * row,
-        gridSquareSpacing * (pattern[0].length - 1) + gridSquareSize, gridSquareSize);
-    }
-  }
-}
-
-void drawInstructions()
-{
-  int size = 12;
-  int x = gridX + gridSquareSpacing * pattern[0].length + 5;
-  int y = gridY + size;
-
-  fill(255);
-  textSize(size);
-
-  text("<- Click squares to create an effect pattern\n[Delete] to clear, [Space] to pause, [Up] to restart pattern.\n", x, y);
-}
 
 void drawEffects(float now)
 {
@@ -342,7 +302,7 @@ void drawDotRadial(int column, float time, PImage im, float angle)
   float motionSpeed = rowsPerSecond * 90.0;
   float fadeSpeed = motionSpeed * 1.0;
   float shrinkSpeed = motionSpeed * 1.2;
-  float size = 200 - max(0, time * shrinkSpeed);
+  float size = 70 - max(0, time * shrinkSpeed);
   float centerX = 0; 
   float topY = (time * motionSpeed) - (size/2) + 400;
   int brightness = int(255 - max(0, fadeSpeed * time));
@@ -351,11 +311,11 @@ void drawDotRadial(int column, float time, PImage im, float angle)
   //topY -= size * 0.4;
 
 //  int rotateX(int X, int Y, float angle)
-  int X = opc.rotateX(int(centerX),int(topY),angle);
-  int Y = opc.rotateY(int(centerX),int(topY),angle);
+  float X = opc.rotateX(int(centerX),int(topY),angle);
+  float Y = opc.rotateY(int(centerX),int(topY),angle);
 
-  X += ledX - (size/2);
-  Y += ledY - (size/2);
+  X += opc.scale / 2 - (size/2);
+  Y += opc.scale / 2 - (size/2);
  
   if (brightness > 0) {
     blendMode(ADD);
@@ -393,12 +353,15 @@ void drawSpinnerEffect(float time, PImage im)
   if (t < -1 || t > 1) return;
 
   float angle = time * 5.0;
-  float size = 800;
+  float size = opc.scale;
   int alpha = int(128 * (1.0 + cos(t * PI)));
+
+  int x = int(opc.scale / 2);
+  int y = int(opc.scale / 2);
 
   if (alpha > 0) {
     pushMatrix();
-    translate(ledX, ledY);
+    translate(x, y);
     rotate(angle);
     blendMode(ADD);
     tint(alpha);
@@ -456,7 +419,6 @@ void drawStripeEffect(float identity, float time)
 
 void readPattern(){
   String pattern_string = redis.get("pattern");
-  println(pattern_string);
   int[] nums = int(split(pattern_string, ','));
 
   for (int x=0; x < 8; x++){
